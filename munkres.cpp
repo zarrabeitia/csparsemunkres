@@ -256,6 +256,9 @@ short Munkres::step_6() {
 
 // Remap the indices in entries to 0..n, to eliminate empty rows and columns.
 vector<entry> munkres(vector<entry> &entries) {
+    if (entries.size() <= 1) {
+        return entries;
+    }
     vector<entry> optimal, remapped;
     map<uint, uint> i_rmap;
     map<uint, uint> j_rmap;
