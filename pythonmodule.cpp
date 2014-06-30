@@ -3,6 +3,13 @@
 #include "munkres.h"
 #include <iostream>
 
+#ifndef PyInt_Check
+#define PyInt_Check(x) PyLong_Check(x)
+#endif
+#ifndef PyInt_AsLong
+#define PyInt_AsLong(x) PyLong_AsLong(x)
+#endif
+
 using namespace std;
 
 bool marshal_pyargs_to_entries(PyObject *self, PyObject *args, vector<entry> &entries, bool &with_cost) {
