@@ -69,7 +69,7 @@ bool marshal_pyargs_to_entries(PyObject *self, PyObject *args, vector<entry> &en
         /* DON'T DECREF item here */
     }
     Py_DECREF(py_entries);
-
+    return true;
 }
 
 PyObject* marshal_entries_to_list(vector<entry> &entries, bool with_cost) {
