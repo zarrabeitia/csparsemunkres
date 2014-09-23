@@ -16,6 +16,7 @@ typedef struct _coords {
 } coords;
 
 typedef struct _entry {
+    uint idx;
     coords pos;
     double cost;
 } entry;

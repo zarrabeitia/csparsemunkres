@@ -12,7 +12,7 @@
 
 using namespace std;
 
-bool marshal_pyargs_to_entries(PyObject *self, PyObject *args, vector<entry> &entries, bool &with_cost) {
+bool marshal_pyargs_to_entries(PyObject *self, PyObject *args, vector<entry> &entries, bool &with_cost, bool &with_idx) {
     PyObject *py_entries_arg;
     PyObject *py_entries;
     PyObject *py_entry_seq;    
@@ -20,14 +20,16 @@ bool marshal_pyargs_to_entries(PyObject *self, PyObject *args, vector<entry> &en
     PyObject *value;
     int i, len, slen;
     int with_cost_int = 0;
+    int with_idx_int = 0;
     
     char* wrong_arg_msg = "Expected a sequence of (i,j,cost)";
 
-    /* Marchal the list of tuples in *args into the entries vector */
-    if (!PyArg_ParseTuple(args, "O|i", &py_entries_arg,&with_cost_int))
+    /* Marshal the list of tuples in *args into the entries vector */
+    if (!PyArg_ParseTuple(args, "O|ii", &py_entries_arg,&with_cost_int,&with_idx_int))
         return false;
     
     with_cost = (with_cost_int != 0);
+    with_idx = (with_idx_int != 0);
 
     py_entries = PySequence_Fast(py_entries_arg, wrong_arg_msg);
     if (!py_entries) {
@@ -38,6 +40,7 @@ bool marshal_pyargs_to_entries(PyObject *self, PyObject *args, vector<entry> &en
     for (i = 0; i < len; i++) {
         py_entry = PySequence_Fast_GET_ITEM(py_entries, i);
         entry e;
+        e.idx = i;
         py_entry_seq = PySequence_Fast(py_entry, wrong_arg_msg);
         if (!py_entry_seq) {
             PyErr_SetString(PyExc_ValueError, wrong_arg_msg);
@@ -72,15 +75,22 @@ bool marshal_pyargs_to_entries(PyObject *self, PyObject *args, vector<entry> &en
     return true;
 }
 
-PyObject* marshal_entries_to_list(vector<entry> &entries, bool with_cost) {
+PyObject* marshal_entries_to_list(vector<entry> &entries, bool with_cost, bool with_idx) {
     // Marshal the entries back to a python list of tuples.
     PyObject *py_result = PyList_New(entries.size());
     for (uint i = 0; i < entries.size(); i++) {
         entry &e = entries[i];
         PyObject *res_entry;
-        if (with_cost) {
+        if (with_cost && with_idx) {
+            res_entry = Py_BuildValue("llld", e.idx, e.pos.i, e.pos.j, e.cost);
+        }
+        else if (with_cost) {
             res_entry = Py_BuildValue("lld", e.pos.i, e.pos.j, e.cost);
-        } else {
+        } 
+        else if (with_idx) {
+            res_entry = Py_BuildValue("lll", e.idx, e.pos.i, e.pos.j);
+        }
+        else {
             res_entry = Py_BuildValue("ll", e.pos.i, e.pos.j);
         }
         // SetItem steals the reference to res_entry, so we don't have to DECREF it.
@@ -95,17 +105,20 @@ munkres_munkres(PyObject *self, PyObject *args)
 {
     vector<entry> entries;
     bool with_cost;
-    if (!marshal_pyargs_to_entries(self, args, entries, with_cost)) {
+    bool with_idx;
+    if (!marshal_pyargs_to_entries(self, args, entries, with_cost, with_idx)) {
         return NULL;
     }
     vector<entry> optimal = munkres(entries);
-    PyObject *py_result = marshal_entries_to_list(optimal, with_cost);
+    PyObject *py_result = marshal_entries_to_list(optimal, with_cost, with_idx);
     return py_result;
 }
 
-char* munkres_fnc_doc = "munkres([(i,j,cost)...], return_costs=False).\n"
-                    "Returns the optimal matching as a list of tuples [(i,j)...]  if return_costs is False,"
-                    "or [(i,j,cost)...] if return_costs is True.";
+char* munkres_fnc_doc = "munkres([(i,j,cost)...], return_costs=False, return_idx=False).\n"
+                    "Returns the optimal matching as a list of tuples [(idx, i, j, cost)...].\n"
+                    "Both idx and cost are excluded from the return tuples by default "
+                    "(return_costs and return_idx)"
+                    "";
   
 static PyMethodDef MunkresMethods[] = {
     {"munkres", munkres_munkres, METH_VARARGS, munkres_fnc_doc},
